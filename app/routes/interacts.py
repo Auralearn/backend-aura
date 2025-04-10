@@ -40,6 +40,7 @@ router = APIRouter()
 # Request body model
 class CurrentContext(BaseModel):
     active_material_id: Optional[str] = None
+    active_chapter_id: Optional[str] = None
 
 class InteractRequest(BaseModel):
     user_text: str
@@ -58,9 +59,22 @@ class DisplayListResponse(BaseModel):
     action_type: str = "DISPLAY_LIST"
     data: Dict[str, List[Dict[str, str]]]
 
+class Content(BaseModel):
+    text: str
+    images: Optional[List[Dict[str, str]]] = None
+
+class Material(BaseModel):
+    id: str
+    title: str
+    content: Content
+
 class DisplayContentResponse(BaseModel):
     action_type: str = "DISPLAY_CONTENT"
-    data: Dict[str, Dict[str, str]]
+    data: Dict[str, Material]
+
+class DisplayChapterResponse(BaseModel):
+    action_type: str = "DISPLAY_CHAPTER"
+    data: Dict[str, List[Dict[str, str]]]
 
 class ErrorResponse(BaseModel):
     action_type: str = "ERROR"
@@ -91,21 +105,75 @@ async def interact(request: InteractRequest):
                     ]
                 }
             ).model_dump()
-        elif "content" in user_text:
+        elif "chapter" in user_text and current_context.active_material_id:
+            # Example chapters for a selected material
+            return DisplayChapterResponse(
+                data={
+                    "chapters": [
+                        {"id": "1", "title": "Chapter 1: Introduction"},
+                        {"id": "2", "title": "Chapter 2: Advanced Topics"}
+                    ]
+                }
+            ).model_dump()
+        elif "content" in user_text and current_context.active_chapter_id:
+    # Example content for a selected chapter
             return DisplayContentResponse(
                 data={
                     "material": {
-                        "id": "1",
-                        "title": "Material 1",
-                        "content": "This is the content of Material 1."
+                        "id": current_context.active_material_id,
+                        "title": f"Chapter {current_context.active_chapter_id} Content",
+                        "content": {
+                            "text": "This is the content of the selected chapter.",
+                            "images": [
+                                {
+                                    "url": "https://example.com/images/example.png",
+                                    "description": "Example image"
+                                }
+                            ]
+                        }
                     }
                 }
             ).model_dump()
         else:
             return ErrorResponse(
-                data={"error_message": "Unrecognized command."}
+                data={"error_message": "Unrecognized command or missing context."}
             ).model_dump()
 
     except Exception as e:
         # Handle unexpected errors
         raise HTTPException(status_code=500, detail=str(e))
+    
+"""
+Data example:
+{
+    "material": {
+        "id": "1",
+        "title": "Introduction to Python",
+        "content": {
+            "text": "Python is a versatile programming language used for web development, data analysis, artificial intelligence, and more [python_logo.png]. Python is first found on ...",
+            "images": [
+                {
+                    "url": "https://example.com/images/python_logo.png",
+                    "description": "Python logo"
+                }
+            ]
+        }
+    }
+}
+
+# Example of how to use the router in Postman
+POST http://127.0.0.1:8000/api/interact
+Body:
+{
+  "user_text": "content",
+  "current_context": {
+    "active_material_id": "1",
+    "active_chapter_id": "1"
+  }
+}
+Try different user_text values to test different responses.
+- "speak"
+- "navigate"
+- "show list"
+- "chapter" 
+"""
