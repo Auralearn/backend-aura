@@ -74,10 +74,14 @@ async def interact(request: InteractRequest):
         current_context = request.current_context
 
         # Process the input and determine intent
-        if "navigate" in user_text:
+        if "speak" in user_text:
+            return SpeakResponse(
+                data={"text_to_speak": "Text to be read aloud..."}
+            ).model_dump()
+        elif "navigate" in user_text:
             return NavigateResponse(
                 data={"target_screen": "LIST_SCREEN"}
-            ).dict()
+            ).model_dump()
         elif "show list" in user_text:
             return DisplayListResponse(
                 data={
@@ -86,7 +90,7 @@ async def interact(request: InteractRequest):
                         {"id": "2", "title": "Material 2"}
                     ]
                 }
-            ).dict()
+            ).model_dump()
         elif "content" in user_text:
             return DisplayContentResponse(
                 data={
@@ -96,11 +100,11 @@ async def interact(request: InteractRequest):
                         "content": "This is the content of Material 1."
                     }
                 }
-            ).dict()
+            ).model_dump()
         else:
             return ErrorResponse(
                 data={"error_message": "Unrecognized command."}
-            ).dict()
+            ).model_dump()
 
     except Exception as e:
         # Handle unexpected errors
