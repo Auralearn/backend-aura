@@ -30,12 +30,67 @@ example:
 }
 """
 
+import json
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 
 # Define the router
 router = APIRouter()
+
+# Load data from a JSON file
+# with open("data.json", "r") as file:
+#     data = json.load(file)
+data = {
+    "material_list": [
+        {
+            "material_id": "1",
+            "material_title": "Material 1",
+            "chapters": [
+                {
+                    "chapter_id": "1",
+                    "chapter_title": "Chapter 1: Introduction",
+                    "content": {
+                        "text": "This is the content of Chapter 1.",
+                        "images": [
+                            {
+                                "url": "https://example.com/images/example1.png",
+                                "description": "Example image 1"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "chapter_id": "2",
+                    "chapter_title": "Chapter 2: Advanced Topics",
+                    "content": {
+                        "text": "This is the content of Chapter 2.",
+                        "images": [
+                            {
+                                "url": "https://example.com/images/example2.png",
+                                "description": "Example image 2"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "material_id": "2",
+            "material_title": "Material 2",
+            "chapters": [
+                {
+                    "chapter_id": "1",
+                    "chapter_title": "Chapter 1: Basics",
+                    "content": {
+                        "text": "This is the content of Material 2, Chapter 1.",
+                        "images": []
+                    }
+                }
+            ]
+        }
+    ]
+}
 
 # Request body model
 class CurrentContext(BaseModel):
@@ -59,18 +114,9 @@ class DisplayListResponse(BaseModel):
     action_type: str = "DISPLAY_LIST"
     data: Dict[str, List[Dict[str, str]]]
 
-class Content(BaseModel):
-    text: str
-    images: Optional[List[Dict[str, str]]] = None
-
-class Material(BaseModel):
-    id: str
-    title: str
-    content: Content
-
 class DisplayContentResponse(BaseModel):
     action_type: str = "DISPLAY_CONTENT"
-    data: Dict[str, Material]
+    data: Dict[str, Dict[str, str]]
 
 class DisplayChapterResponse(BaseModel):
     action_type: str = "DISPLAY_CHAPTER"
@@ -88,52 +134,50 @@ async def interact(request: InteractRequest):
         current_context = request.current_context
 
         # Process the input and determine intent
-        if "speak" in user_text:
-            return SpeakResponse(
-                data={"text_to_speak": "Text to be read aloud..."}
-            ).model_dump()
-        elif "navigate" in user_text:
-            return NavigateResponse(
-                data={"target_screen": "LIST_SCREEN"}
-            ).model_dump()
-        elif "show list" in user_text:
+        if "show list" in user_text:
+            # Return the list of materials
+            material_list = [{"id": material["material_id"], "title": material["material_title"]} for material in data["material_list"]]
             return DisplayListResponse(
-                data={
-                    "material_list": [
-                        {"id": "1", "title": "Material 1"},
-                        {"id": "2", "title": "Material 2"}
-                    ]
-                }
+                data={"material_list": material_list}
             ).model_dump()
+
         elif "chapter" in user_text and current_context.active_material_id:
-            # Example chapters for a selected material
-            return DisplayChapterResponse(
-                data={
-                    "chapters": [
-                        {"id": "1", "title": "Chapter 1: Introduction"},
-                        {"id": "2", "title": "Chapter 2: Advanced Topics"}
-                    ]
-                }
-            ).model_dump()
+            # Find the selected material and return its chapters
+            material = next((m for m in data["material_list"] if m["material_id"] == current_context.active_material_id), None)
+            if material:
+                chapters = [{"id": chapter["chapter_id"], "title": chapter["chapter_title"]} for chapter in material["chapters"]]
+                return DisplayChapterResponse(
+                    data={"chapters": chapters}
+                ).model_dump()
+            else:
+                return ErrorResponse(
+                    data={"error_message": "Material not found."}
+                ).model_dump()
+
         elif "content" in user_text and current_context.active_chapter_id:
-    # Example content for a selected chapter
-            return DisplayContentResponse(
-                data={
-                    "material": {
-                        "id": current_context.active_material_id,
-                        "title": f"Chapter {current_context.active_chapter_id} Content",
-                        "content": {
-                            "text": "This is the content of the selected chapter.",
-                            "images": [
-                                {
-                                    "url": "https://example.com/images/example.png",
-                                    "description": "Example image"
-                                }
-                            ]
+            # Find the selected material and chapter, then return its content
+            material = next((m for m in data["material_list"] if m["material_id"] == current_context.active_material_id), None)
+            if material:
+                chapter = next((c for c in material["chapters"] if c["chapter_id"] == current_context.active_chapter_id), None)
+                if chapter:
+                    return DisplayContentResponse(
+                        data={
+                            "material": {
+                                "id": current_context.active_material_id,
+                                "title": chapter["chapter_title"],
+                                "content": chapter["content"]
+                            }
                         }
-                    }
-                }
-            ).model_dump()
+                    ).model_dump()
+                else:
+                    return ErrorResponse(
+                        data={"error_message": "Chapter not found."}
+                    ).model_dump()
+            else:
+                return ErrorResponse(
+                    data={"error_message": "Material not found."}
+                ).model_dump()
+
         else:
             return ErrorResponse(
                 data={"error_message": "Unrecognized command or missing context."}
@@ -144,24 +188,7 @@ async def interact(request: InteractRequest):
         raise HTTPException(status_code=500, detail=str(e))
     
 """
-Data example:
-{
-    "material": {
-        "id": "1",
-        "title": "Introduction to Python",
-        "content": {
-            "text": "Python is a versatile programming language used for web development, data analysis, artificial intelligence, and more [python_logo.png]. Python is first found on ...",
-            "images": [
-                {
-                    "url": "https://example.com/images/python_logo.png",
-                    "description": "Python logo"
-                }
-            ]
-        }
-    }
-}
-
-# Example of how to use the router in Postman
+Example of how to use the router in Postman
 POST http://127.0.0.1:8000/api/interact
 Body:
 {
