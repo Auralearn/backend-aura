@@ -30,105 +30,16 @@ example:
 }
 """
 
-import json
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import Optional, List, Dict
+from app.routes.models import (
+    InteractRequest, SpeakResponse, PauseResponse, PDFConvertResponse,
+    DisplayListResponse, DisplayContentResponse, DisplayChapterResponse, ErrorResponse
+)
+from app.data.mock_data import materials_mockup
+from typing import Dict
 
 # Define the router
 router = APIRouter()
-
-# Load data from a JSON file
-# with open("data.json", "r") as file:
-#     data = json.load(file)
-data = {
-    "material_list": [
-        {
-            "material_id": "1",
-            "material_title": "Material 1",
-            "chapters": [
-                {
-                    "chapter_id": "1",
-                    "chapter_title": "Chapter 1: Introduction",
-                    "content": {
-                        "text": "This is the content of Chapter 1.",
-                        "images": [
-                            {
-                                "url": "https://example.com/images/example1.png",
-                                "description": "Example image 1"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "chapter_id": "2",
-                    "chapter_title": "Chapter 2: Advanced Topics",
-                    "content": {
-                        "text": "This is the content of Chapter 2.",
-                        "images": [
-                            {
-                                "url": "https://example.com/images/example2.png",
-                                "description": "Example image 2"
-                            }
-                        ]
-                    }
-                }
-            ]
-        },
-        {
-            "material_id": "2",
-            "material_title": "Material 2",
-            "chapters": [
-                {
-                    "chapter_id": "1",
-                    "chapter_title": "Chapter 1: Basics",
-                    "content": {
-                        "text": "This is the content of Material 2, Chapter 1.",
-                        "images": []
-                    }
-                }
-            ]
-        }
-    ]
-}
-
-# Request body model
-class CurrentContext(BaseModel):
-    active_material_id: Optional[str] = None
-    active_chapter_id: Optional[str] = None
-
-class InteractRequest(BaseModel):
-    user_text: str
-    current_context: CurrentContext
-
-# Response body models
-class SpeakResponse(BaseModel):
-    action_type: str = "SPEAK"
-    data: Dict[str, str]
-
-class PauseResponse(BaseModel):
-    action_type: str = "PAUSE"
-    data: Dict[str, str]
-
-class PDFConvertResponse(BaseModel):
-    action_type: str = "PDF_CONVERT"
-    data: Dict[str, str]
-
-class DisplayListResponse(BaseModel):
-    action_type: str = "DISPLAY_LIST"
-    data: Dict[str, List[Dict[str, str]]]
-
-class DisplayContentResponse(BaseModel):
-    action_type: str = "DISPLAY_CONTENT"
-    data: Dict[str, Dict[str, str]]
-
-class DisplayChapterResponse(BaseModel):
-    action_type: str = "DISPLAY_CHAPTER"
-    data: Dict[str, List[Dict[str, str]]]
-
-class ErrorResponse(BaseModel):
-    action_type: str = "ERROR"
-    data: Dict[str, str]
 
 # Route implementation
 @router.post("/interact", response_model=Dict)
@@ -140,7 +51,7 @@ async def interact(request: InteractRequest):
         # Process the input and determine intent
         if "show list" in user_text:
             # Return the list of materials
-            material_list = [{"id": material["material_id"], "title": material["material_title"]} for material in data["material_list"]]
+            material_list = [{"id": material["id"], "title": material["title"]} for material in materials_mockup]
             return DisplayListResponse(
                 data={"material_list": material_list}
             ).model_dump()
@@ -163,11 +74,11 @@ async def interact(request: InteractRequest):
                 data={"message": f"Baik terima kasih. Materi yang Anda unggah akan saya konversi ke PDF."}
             ).model_dump()
 
-        elif "chapter" in user_text and current_context.active_material_id:
+        elif "chapter" in user_text:
             # Find the selected material and return its chapters
-            material = next((m for m in data["material_list"] if m["material_id"] == current_context.active_material_id), None)
-            if material:
-                chapters = [{"id": chapter["chapter_id"], "title": chapter["chapter_title"]} for chapter in material["chapters"]]
+            material = next((m for m in materials_mockup if m["id"] == current_context.active_material_id), None)
+            if material and current_context.active_material_id:
+                chapters = [{"id": chapter["id"], "title": chapter["title"]} for chapter in material["chapters"]]
                 return DisplayChapterResponse(
                     data={"chapters": chapters}
                 ).model_dump()
@@ -176,17 +87,17 @@ async def interact(request: InteractRequest):
                     data={"error_message": "Maaf, materi yang Anda cari tidak ditemukan."}
                 ).model_dump()
 
-        elif "content" in user_text and current_context.active_chapter_id:
-            # Find the selected material and chapter, then return its content
-            material = next((m for m in data["material_list"] if m["material_id"] == current_context.active_material_id), None)
-            if material:
-                chapter = next((c for c in material["chapters"] if c["chapter_id"] == current_context.active_chapter_id), None)
-                if chapter:
+        elif "content" in user_text:
+            material = next((m for m in materials_mockup if m["id"] == current_context.active_material_id), None)
+            if material and current_context.active_material_id:
+                chapter = next((c for c in material["chapters"] if c["id"] == current_context.active_chapter_id), None)
+                if chapter and current_context.active_chapter_id:
                     return DisplayContentResponse(
                         data={
                             "material": {
-                                "id": current_context.active_material_id,
-                                "title": chapter["chapter_title"],
+                                "id": current_context.active_chapter_id,
+                                "title": chapter["title"],
+                                "subtitle": chapter["subtitle"],
                                 "content": chapter["content"]
                             }
                         }
@@ -199,10 +110,12 @@ async def interact(request: InteractRequest):
                 return ErrorResponse(
                     data={"error_message": "Maaf, materi yang Anda cari tidak ditemukan."}
                 ).model_dump()
+            
 
         else:
+            # Handle unrecognized commands
             return ErrorResponse(
-                data={"error_message": "Maaf, saya tidak memahami apa yang Anda katakan."}
+                data={"error_message": "Maaf, saya tidak mengerti perintah Anda."}
             ).model_dump()
 
     except Exception as e:

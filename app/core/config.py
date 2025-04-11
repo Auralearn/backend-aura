@@ -1,6 +1,6 @@
 import os
 from typing import List, Union
-from pydantic import BaseSettings, field_validator
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     """Application configuration settings.
