@@ -1,4 +1,6 @@
-mock_materials = [
+
+
+materials_mockup = [
     # === MATEMATIKA SMA ===
     {
         "id": "math-sma1",
