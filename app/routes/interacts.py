@@ -106,8 +106,12 @@ class SpeakResponse(BaseModel):
     action_type: str = "SPEAK"
     data: Dict[str, str]
 
-class NavigateResponse(BaseModel):
-    action_type: str = "NAVIGATE"
+class PauseResponse(BaseModel):
+    action_type: str = "PAUSE"
+    data: Dict[str, str]
+
+class PDFConvertResponse(BaseModel):
+    action_type: str = "PDF_CONVERT"
     data: Dict[str, str]
 
 class DisplayListResponse(BaseModel):
@@ -140,6 +144,24 @@ async def interact(request: InteractRequest):
             return DisplayListResponse(
                 data={"material_list": material_list}
             ).model_dump()
+        
+        elif "speak" in user_text:
+            # Respond with a speak action
+            return SpeakResponse(
+                data={"text_to_speak": "Baik, saya akan melanjutkan"}
+            ).model_dump()
+
+        elif "pause" in user_text:
+            # Respond with a pause action
+            return PauseResponse(
+                data={"text_to_speak": "Baik, saya akan berhenti"}
+            ).model_dump()
+
+        elif "pdf" in user_text:
+            # Respond with a PDF conversion action
+            return PDFConvertResponse(
+                data={"message": f"Baik terima kasih. Materi yang Anda unggah akan saya konversi ke PDF."}
+            ).model_dump()
 
         elif "chapter" in user_text and current_context.active_material_id:
             # Find the selected material and return its chapters
@@ -151,7 +173,7 @@ async def interact(request: InteractRequest):
                 ).model_dump()
             else:
                 return ErrorResponse(
-                    data={"error_message": "Material not found."}
+                    data={"error_message": "Maaf, materi yang Anda cari tidak ditemukan."}
                 ).model_dump()
 
         elif "content" in user_text and current_context.active_chapter_id:
@@ -171,16 +193,16 @@ async def interact(request: InteractRequest):
                     ).model_dump()
                 else:
                     return ErrorResponse(
-                        data={"error_message": "Chapter not found."}
+                        data={"error_message": "Maaf, bab yang Anda cari tidak ditemukan."}
                     ).model_dump()
             else:
                 return ErrorResponse(
-                    data={"error_message": "Material not found."}
+                    data={"error_message": "Maaf, materi yang Anda cari tidak ditemukan."}
                 ).model_dump()
 
         else:
             return ErrorResponse(
-                data={"error_message": "Unrecognized command or missing context."}
+                data={"error_message": "Maaf, saya tidak memahami apa yang Anda katakan."}
             ).model_dump()
 
     except Exception as e:
