@@ -5,12 +5,11 @@ from pydantic import BaseSettings, field_validator
 class Settings(BaseSettings):
     """Application configuration settings.
     
-    Handles app settings and  environment variables,
-    
     Attributes:
         API_PREFIX: Prefix for all API endpoints
         SECRET_KEY: Secret key for security features
         DATABASE_URL: Connection string for the database
+        CORS_ALLOW_ORIGINS:List of allowed origins for CORS
         ALLOWED_HOSTS: List of allowed hosts for CORS
         SERVER_NAME: Name identifier for the server
         PORT: Port number the server runs on
@@ -23,15 +22,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
     
     # CORS and allowed hosts
-    ALLOWED_HOSTS: list[str] = ["*"] 
-    
-    @field_validator("ALLOWED_HOSTS", pre=True)
-    def assemble_allowed_hosts(cls, v: str | list[str]) -> list[str]:
-        if isinstance(v, str) and v:
-            return [i.strip() for i in v.split(",")]
-        elif isinstance(v, list):
-            return v
-        return ["*"]
+    CORS_ALLOW_ORIGINS: list[str] = ["*"] 
+    ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1"] 
     
     # Server Information
     SERVER_NAME: str = "FastAPI Server"
