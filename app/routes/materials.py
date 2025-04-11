@@ -1,25 +1,56 @@
-"""
-TODO:
+import json
+from typing import List
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from app.models.materials import Material, ChapterContent, Chapter
+from app.data.mock_data import materials_mockup
+from app.utils.exceptions import NotFoundError
+from app.schemas.responses import StandardAppResponse
+    
+class MaterialTitleResponse(BaseModel):
+    id: str
+    title: str
 
-1. Create a route to get materials
-# Route: /materials
-# Method: GET
-# Request Body: None
-# Response Body: JSON object containing a list of materials
-[
-  {"id": "<unique_code>", "title": "Matematika - Kelas 1 SD"},
-  {"id": "<unique_code>", "title": "Matematika - Kelas 2 SD"},
-  ...
-]
+class MaterialContentResponse(BaseModel):
+    id: str
+    title: str
+    chapters: List[Chapter]
 
-2. Create a route to get material content
-# Route: /materials/<material_id>
-# Method: GET
-# Request Body: None
-# Response Body: JSON object containing the content of the material
-{
-  "id": "<unique_code>",
-  "title": "Matematika - Kelas 1 SD",
-  "content": "..."
-}
-"""
+router = APIRouter()
+
+def load_materials():
+    """
+    TODO: Ganti ini dengan load dari database setelah test
+    """
+    return materials_mockup
+
+@router.get(
+    "/materials", 
+    response_model=StandardAppResponse[List[MaterialTitleResponse]],
+    summary="Get all materials titles",
+    description="Retrieve a list of all available titles of materials"
+)
+async def get_materials():
+    """Get a list of materials."""
+    materials = load_materials()
+    
+    material_titles = [
+        MaterialTitleResponse(id=material["id"], title=material["title"]) 
+        for material in materials
+    ]
+    return StandardAppResponse(data=material_titles)
+
+@router.get(
+    "/materials/{material_id}", 
+    response_model=StandardAppResponse[MaterialContentResponse],
+    summary="Get material content",
+    description="Retrieve the complete content of a specific material by ID"
+)
+async def get_material_content(material_id: str):
+    """Get a specific material by ID"""
+    material = next((m for m in load_materials() if m['id'] == material_id), None)
+    
+    if material is None:
+        raise NotFoundError(detail=f"Material with ID {material_id} not found")
+    
+    return StandardAppResponse(data=MaterialContentResponse(**material))
