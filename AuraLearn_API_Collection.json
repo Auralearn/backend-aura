@@ -1,0 +1,248 @@
+{
+    "info": {
+      "_postman_id": "3f73e8d5-5b3a-4c3e-82a2-f0b3f9e0a9b4",
+      "name": "AuraLearn API",
+      "description": "Collection for testing the AuraLearn API endpoints",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+      {
+        "name": "Health Check (Root)",
+        "request": {
+          "method": "GET",
+          "url": {
+            "raw": "http://{{baseUrl}}",
+            "protocol": "http",
+            "host": [
+              "{{baseUrl}}"
+            ]
+          },
+          "description": "Simple health check to verify the API is running"
+        },
+        "response": []
+      },
+      {
+        "name": "Get All Materials",
+        "request": {
+          "method": "GET",
+          "url": {
+            "raw": "http://{{baseUrl}}{{apiPrefix}}/materials",
+            "protocol": "http",
+            "host": [
+              "{{baseUrl}}"
+            ],
+            "path": [
+              "{{apiPrefix}}",
+              "materials"
+            ]
+          },
+          "description": "Retrieves a list of all available educational materials"
+        },
+        "response": []
+      },
+      {
+        "name": "Get Material by ID",
+        "request": {
+          "method": "GET",
+          "url": {
+            "raw": "http://{{baseUrl}}{{apiPrefix}}/materials/math-sma1",
+            "protocol": "http",
+            "host": [
+              "{{baseUrl}}"
+            ],
+            "path": [
+              "{{apiPrefix}}",
+              "materials",
+              "math-sma1"
+            ]
+          },
+          "description": "Retrieves complete content of a specific material"
+        },
+        "response": []
+      },
+      {
+        "name": "Get Material by ID (Not Found)",
+        "request": {
+          "method": "GET",
+          "url": {
+            "raw": "http://{{baseUrl}}{{apiPrefix}}/materials/invalid-id",
+            "protocol": "http",
+            "host": [
+              "{{baseUrl}}"
+            ],
+            "path": [
+              "{{apiPrefix}}",
+              "materials",
+              "invalid-id"
+            ]
+          },
+          "description": "Tests error handling when material ID is not found"
+        },
+        "response": []
+      },
+      {
+        "name": "Interact - Ask Question",
+        "request": {
+          "method": "POST",
+          "url": {
+            "raw": "http://{{baseUrl}}{{apiPrefix}}/interact",
+            "protocol": "http",
+            "host": [
+              "{{baseUrl}}"
+            ],
+            "path": [
+              "{{apiPrefix}}",
+              "interact"
+            ]
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"user_text\": \"apa itu persamaan linear\",\n  \"current_context\": {\n    \"active_material_id\": \"math-sma1\",\n    \"active_chapter_id\": \"math-sma1-ch1\"\n  }\n}"
+          },
+          "description": "Tests a question interaction that should trigger a SPEAK response"
+        },
+        "response": []
+      },
+      {
+        "name": "Interact - Navigate to Material",
+        "request": {
+          "method": "POST",
+          "url": {
+            "raw": "http://{{baseUrl}}{{apiPrefix}}/interact",
+            "protocol": "http",
+            "host": [
+              "{{baseUrl}}"
+            ],
+            "path": [
+              "{{apiPrefix}}",
+              "interact"
+            ]
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"user_text\": \"buka materi matematika sma kelas 1\",\n  \"current_context\": {\n    \"active_material_id\": null,\n    \"active_chapter_id\": null\n  }\n}"
+          },
+          "description": "Tests a navigation interaction that should trigger opening a material"
+        },
+        "response": []
+      },
+      {
+        "name": "Interact - Open PDF Scanner",
+        "request": {
+          "method": "POST",
+          "url": {
+            "raw": "http://{{baseUrl}}{{apiPrefix}}/interact",
+            "protocol": "http",
+            "host": [
+              "{{baseUrl}}"
+            ],
+            "path": [
+              "{{apiPrefix}}",
+              "interact"
+            ]
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"user_text\": \"buka pdf scanner\",\n  \"current_context\": {\n    \"active_material_id\": null,\n    \"active_chapter_id\": null\n  }\n}"
+          },
+          "description": "Tests a navigation interaction that should trigger opening the PDF scanner"
+        },
+        "response": []
+      },
+      {
+        "name": "Interact - Unrecognized Command",
+        "request": {
+          "method": "POST",
+          "url": {
+            "raw": "http://{{baseUrl}}{{apiPrefix}}/interact",
+            "protocol": "http",
+            "host": [
+              "{{baseUrl}}"
+            ],
+            "path": [
+              "{{apiPrefix}}",
+              "interact"
+            ]
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"user_text\": \"random text that doesn't match any pattern\",\n  \"current_context\": {\n    \"active_material_id\": null,\n    \"active_chapter_id\": null\n  }\n}"
+          },
+          "description": "Tests handling of an unrecognized command"
+        },
+        "response": []
+      }
+    ],
+    "variable": [
+      {
+        "key": "baseUrl",
+        "value": "localhost:8000",
+        "type": "string"
+      },
+      {
+        "key": "apiPrefix",
+        "value": "/api/v1",
+        "type": "string"
+      }
+    ],
+    "event": [
+      {
+        "listen": "prerequest",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            ""
+          ]
+        }
+      },
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"Status code is 200\", function () {",
+            "    pm.response.to.have.status(200);",
+            "});",
+            "",
+            "pm.test(\"Response structure is valid\", function () {",
+            "    const responseData = pm.response.json();",
+            "    pm.expect(responseData).to.be.an('object');",
+            "    pm.expect(responseData).to.have.property('success');",
+            "    ",
+            "    if (responseData.success) {",
+            "        pm.expect(responseData).to.have.property('data');",
+            "    } else {",
+            "        pm.expect(responseData).to.have.property('error');",
+            "        pm.expect(responseData.error).to.have.property('code');",
+            "        pm.expect(responseData.error).to.have.property('message');",
+            "    }",
+            "});"
+          ]
+        }
+      }
+    ]
+  }
