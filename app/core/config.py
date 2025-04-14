@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     PORT: int = 8000
     HOST: str = "localhost"
     
+    # Model API KEY
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "your_gemini_api_key_here")
+    
     class Config:
         case_sensitive = True
         env_file = ".env"
