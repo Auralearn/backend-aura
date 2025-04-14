@@ -1,141 +1,147 @@
-"""
-TODO:
-Create a route to handle the interaction with the Voice assistant.
-
-Receives raw text (from Android STT), processes it to understand intent, and returns instructions to the Android app.
-
-# Route: /interact
-# Method: POST
-# Request Body: JSON object containing the user's input
-example:
-```json
-{
-  "user_text": "string", // Raw text from Android STT
-  "current_context": {
-    "active_material_id": "string | null" // ID of the currently active material in Android, or null
-  }
-}
-
-# Response Body: JSON object
-example:
-{
-  "action_type": "SPEAK" | "NAVIGATE" | "DISPLAY_LIST" | "DISPLAY_CONTENT" | "ERROR", // Type of action
-  "data": { // Content varies based on action_type
-    for SPEAK: "text_to_speak": "Text to be read aloud..."
-    for NAVIGATE: "target_screen": "SCREEN_NAME (e.g., LIST_SCREEN)"
-    for DISPLAY_LIST: "material_list": [ { "id": ..., "title": ... }, ... ]
-    for DISPLAY_CONTENT: "material": { "id": ..., "title": ..., "content": ... }
-    for ERROR/UNRECOGNIZE: "error_message": "Error message..."
-  }
-}
-"""
-
 from fastapi import APIRouter, HTTPException
-from app.routes.models import (
-    InteractRequest, SpeakResponse, PauseResponse, PDFConvertResponse,
-    DisplayListResponse, DisplayContentResponse, DisplayChapterResponse, ErrorResponse
-)
+from typing import Dict, List, Optional
+
+from app.schemas.base import StandardResponse
+from app.schemas.interacts import InteractRequest, BaseActionResponse
+from app.schemas.materials import Material
+
+from app.utils.exceptions import NotFoundError, BadRequestError, ServerError
+
+from app.services.gemini_service import gemini_genetare_content, construct_educational_voice_prompt
+
 from app.data.mock_data import materials_mockup
-from typing import Dict
 
 # Define the router
 router = APIRouter()
 
+# Query category for interact
+interact_query_category = {
+    "speak": ["apa", "mengapa", "siapa", "dimana", "kapan", "bagaimana", "tolong jelaskan", "apa itu", "apa yang dimaksud", "apa yang dimaksud dengan"],
+    "action_material": ["buka materi", "buka buku", "lihat materi", "lihat buku", "tampilkan materi", "tampilkan buku"],
+    "pdf": ["buka pdf scan", "buka scan pdf", "buka pdf", "pdf"]
+}
+
+def load_materials() -> List[Material]:
+    """
+    TODO: Ganti ini dengan load dari database setelah test
+    """
+    result: List[Material] = []
+    for material in materials_mockup:
+        result.append(Material(**material))
+    return result
+
 # Route implementation
-@router.post("/interact", response_model=Dict)
+@router.post(
+    "/interact", 
+    response_model=StandardResponse[BaseActionResponse],
+    summary="Process voice command",
+    description="Process the voice command and return the appropriate action response"
+)
 async def interact(request: InteractRequest):
+    """
+    Process user voice commands and return appropriate actions
+    
+    This endpoint handles different types of voice commands like asking questions,
+    navigating materials, and more.
+    """
+    def model_answer(question: str, context: str) -> str:
+        """Generate an answer to a user question (placeholder for AI model)"""
+        return f"This is the model answer to your question: '{question}'"
+    
     try:
         user_text = request.user_text.lower()
         current_context = request.current_context
 
         # Process the input and determine intent
-        if "show list" in user_text:
-            # Return the list of materials
-            material_list = [{"id": material["id"], "title": material["title"]} for material in materials_mockup]
-            return DisplayListResponse(
-                data={"material_list": material_list}
-            ).model_dump()
+        if any(phrase in user_text for phrase in interact_query_category["speak"]):
+            # Handle speak action
+            return StandardResponse(
+                success=True,
+                data=BaseActionResponse(
+                    action_type="SPEAK",
+                    text_audio=model_answer(user_text),
+                    params=None
+                )
+            )
         
-        elif "speak" in user_text:
-            # Respond with a speak action
-            return SpeakResponse(
-                data={"text_to_speak": "Baik, saya akan melanjutkan"}
-            ).model_dump()
+        elif any(phrase in user_text for phrase in interact_query_category["action_material"]):
+            prompt = """Mana yang paling mirip untuk "{MATERIAL_TITLE}"?
 
-        elif "pause" in user_text:
-            # Respond with a pause action
-            return PauseResponse(
-                data={"text_to_speak": "Baik, saya akan berhenti"}
-            ).model_dump()
+untuk database judul:
+{MATERIAL_TITLE_LIST}
 
-        elif "pdf" in user_text:
-            # Respond with a PDF conversion action
-            return PDFConvertResponse(
-                data={"message": f"Baik terima kasih. Materi yang Anda unggah akan saya konversi ke PDF."}
-            ).model_dump()
+berikan jawaban saja tanpa ada awalan akhiran lain
+"""
+            material_title = ""
+            for phrase in interact_query_category["action_material"]:
+                if phrase in user_text:
+                    material_title = user_text.replace(phrase, "").strip()
+                    break
 
-        elif "chapter" in user_text:
-            # Find the selected material and return its chapters
-            material = next((m for m in materials_mockup if m["id"] == current_context.active_material_id), None)
-            if material and current_context.active_material_id:
-                chapters = [{"id": chapter["id"], "title": chapter["title"]} for chapter in material["chapters"]]
-                return DisplayChapterResponse(
-                    data={"chapters": chapters}
-                ).model_dump()
-            else:
-                return ErrorResponse(
-                    data={"error_message": "Maaf, materi yang Anda cari tidak ditemukan."}
-                ).model_dump()
-
-        elif "content" in user_text:
-            material = next((m for m in materials_mockup if m["id"] == current_context.active_material_id), None)
-            if material and current_context.active_material_id:
-                chapter = next((c for c in material["chapters"] if c["id"] == current_context.active_chapter_id), None)
-                if chapter and current_context.active_chapter_id:
-                    return DisplayContentResponse(
-                        data={
-                            "material": {
-                                "id": current_context.active_chapter_id,
-                                "title": chapter["title"],
-                                "subtitle": chapter["subtitle"],
-                                "content": chapter["content"]
-                            }
-                        }
-                    ).model_dump()
-                else:
-                    return ErrorResponse(
-                        data={"error_message": "Maaf, bab yang Anda cari tidak ditemukan."}
-                    ).model_dump()
-            else:
-                return ErrorResponse(
-                    data={"error_message": "Maaf, materi yang Anda cari tidak ditemukan."}
-                ).model_dump()
+            materials = load_materials()
+            materials_title_id = [
+                [material.title, material.id] for material in materials
+            ]
             
-
+            materials_title_data_text = "\n".join(
+                [f"{material[0]}: {material[1]}" for material in materials_title_id]
+            )
+                     
+            prompt = prompt.format(
+                MATERIAL_TITLE=material_title,
+                MATERIAL_TITLE_LIST=materials_title_data_text
+            )
+            
+            # Call the AI model to get the answer
+            answer = await gemini_genetare_content(query=prompt)
+            
+            if answer:
+                # Find the material ID from the answer
+                for material in materials:
+                    if str(material.id) in answer:
+                        return StandardResponse(
+                            success=True,
+                            data=BaseActionResponse(
+                                action_type="NAVIGATE",
+                                text_audio=f"Berikut adalah materi yang kamu cari: {material.title}",
+                                params={
+                                    "intent": "open_material",
+                                    "material_id": material.id}
+                            )
+                        )
+            else:
+                return StandardResponse(
+                    success=True,
+                    data=BaseActionResponse(
+                        action_type="SPEAK",
+                        text_audio="Maaf saya tidak bisa menemukan materi yang kamu cari",
+                        params=None
+                    )
+                )
+                
+        elif any(phrase in user_text for phrase in interact_query_category["pdf"]):
+            return StandardResponse(
+                success=True,
+                data=BaseActionResponse(
+                    action_type="NAVIGATE",
+                    text_audio="Berikut adalah pdf scanner",
+                    params={"intent": "open_pdf_scanner"}
+                )
+            )
+        
         else:
-            # Handle unrecognized commands
-            return ErrorResponse(
-                data={"error_message": "Maaf, saya tidak mengerti perintah Anda."}
-            ).model_dump()
+            return StandardResponse(
+                success=True,
+                data=BaseActionResponse(
+                    action_type="UNRECOGNIZED",
+                    text_audio="Maaf saya tidak bisa memahami apa yang kamu maksud",
+                    params=None
+                )
+            )
 
+    except (BadRequestError, NotFoundError) as e:
+        # These exceptions will be handled by the exception handlers
+        raise e
     except Exception as e:
-        # Handle unexpected errors
-        raise HTTPException(status_code=500, detail=str(e))
-    
-"""
-Example of how to use the router in Postman
-POST http://127.0.0.1:8000/api/interact
-Body:
-{
-  "user_text": "content",
-  "current_context": {
-    "active_material_id": "1",
-    "active_chapter_id": "1"
-  }
-}
-Try different user_text values to test different responses.
-- "speak"
-- "navigate"
-- "show list"
-- "chapter" 
-"""
+        # Convert unexpected exceptions to ServerError
+        raise ServerError(detail=f"An unexpected error occurred: {str(e)}")

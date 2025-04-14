@@ -1,28 +1,23 @@
-import json
+
 from typing import List
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
-from app.models.materials import Material, ChapterContent, Chapter
+from fastapi import APIRouter
+
 from app.data.mock_data import materials_mockup
 from app.utils.exceptions import NotFoundError
-from app.schemas.responses import StandardAppResponse
-    
-class MaterialTitleResponse(BaseModel):
-    id: str
-    title: str
+from app.schemas.base import StandardAppResponse
+from app.schemas.materials import Material, MaterialTitleResponse, MaterialContentResponse
 
-class MaterialContentResponse(BaseModel):
-    id: str
-    title: str
-    chapters: List[Chapter]
 
 router = APIRouter()
 
-def load_materials():
+def load_materials() -> List[Material]:
     """
     TODO: Ganti ini dengan load dari database setelah test
     """
-    return materials_mockup
+    result: List = []
+    for material in materials_mockup:
+        result.append(Material(**material))
+    return result
 
 @router.get(
     "/materials", 
@@ -35,7 +30,7 @@ async def get_materials():
     materials = load_materials()
     
     material_titles = [
-        MaterialTitleResponse(id=material["id"], title=material["title"]) 
+        MaterialTitleResponse(id=material.id, title=material.title) 
         for material in materials
     ]
     return StandardAppResponse(data=material_titles)
@@ -48,9 +43,9 @@ async def get_materials():
 )
 async def get_material_content(material_id: str):
     """Get a specific material by ID"""
-    material = next((m for m in load_materials() if m['id'] == material_id), None)
+    material = next((m for m in load_materials() if m.id['id'] == material_id), None)
     
     if material is None:
         raise NotFoundError(detail=f"Material with ID {material_id} not found")
     
-    return StandardAppResponse(data=MaterialContentResponse(**material))
+    return StandardAppResponse(data=MaterialContentResponse(**material.model_dump()))
