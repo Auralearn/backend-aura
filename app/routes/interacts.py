@@ -131,7 +131,7 @@ async def interact(request: InteractRequest):
                     success=False,
                     data=BaseActionResponse(
                         action_type="SPEAK",
-                        text_audio="Anda belum membuka materi, tetapi saya akan menjawab pertanyaan anda " + respond,
+                        text_audio=respond,
                         params=None
                     )
                 )
