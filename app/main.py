@@ -13,6 +13,7 @@ from app.utils.error_handlings import (
 
 from app.core.config import settings
 
+
 app = FastAPI(
     title="AuraLearn API",
     description="Backend API for AuraLearn Application",
@@ -22,7 +23,7 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ALLOW_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
@@ -36,3 +37,14 @@ app.add_exception_handler(Exception, general_exception_handler)
 # Routers
 app.include_router(interacts_router, prefix=settings.API_PREFIX)
 app.include_router(materials_router, prefix=settings.API_PREFIX)
+
+@app.get(f"{settings.API_PREFIX}", tags=["Health Check"])
+async def health_check():
+    """
+    Health check endpoint to verify API is running.
+    """
+    return {
+        "status": "active",
+        "message": "AuraLearn API is running",
+        "version": app.version
+    }

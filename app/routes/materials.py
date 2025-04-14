@@ -43,7 +43,7 @@ async def get_materials():
 )
 async def get_material_content(material_id: str):
     """Get a specific material by ID"""
-    material = next((m for m in load_materials() if m.id['id'] == material_id), None)
+    material = next((m for m in load_materials() if m.id == material_id), None)
     
     if material is None:
         raise NotFoundError(detail=f"Material with ID {material_id} not found")

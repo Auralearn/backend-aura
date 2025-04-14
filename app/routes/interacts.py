@@ -44,9 +44,6 @@ async def interact(request: InteractRequest):
     This endpoint handles different types of voice commands like asking questions,
     navigating materials, and more.
     """
-    def model_answer(question: str, context: str) -> str:
-        """Generate an answer to a user question (placeholder for AI model)"""
-        return f"This is the model answer to your question: '{question}'"
     
     try:
         user_text = request.user_text.lower()
@@ -54,12 +51,98 @@ async def interact(request: InteractRequest):
 
         # Process the input and determine intent
         if any(phrase in user_text for phrase in interact_query_category["speak"]):
+            
+            material_id = current_context.active_material_id
+            
+            # Get the material title from the context
+            material = next((m for m in load_materials() if m.id == material_id), None)
+            
+            if material:
+                chapter_id = current_context.active_chapter_id
+                
+                chapter_content = next((c for c in material.chapters if c.id == chapter_id), None)
+                
+                if chapter_content:
+                    # context text from the chapter content
+                    context_text = ""
+                    for content_block in chapter_content.content:
+                        context_text += content_block.text + "\n\n"
+                        
+                        # Add image captions if any
+                        if hasattr(content_block, 'images') and content_block.images:
+                            for image in content_block.images:
+                                if image.caption:
+                                    context_text += f"[Image: {image.caption}]\n"
+                        
+                        # Add video captions if any
+                        if hasattr(content_block, 'videos') and content_block.videos:
+                            for video in content_block.videos:
+                                if video.caption:
+                                    context_text += f"[Video: {video.caption}]\n"
+                                    
+                        # Add audio captions if any
+                        if hasattr(content_block, 'audios') and content_block.audios:
+                            for audio in content_block.audios:
+                                if audio.caption:
+                                    context_text += f"[Audio: {audio.caption}]\n"
+                        
+                        context_text += "\n"
+                    
+                    prompt = construct_educational_voice_prompt(
+                        question=user_text,
+                        context=context_text
+                    )
+                    
+                    respond = await gemini_genetare_content(query=prompt)
+                    
+                    return StandardResponse(
+                        success=True,
+                        data=BaseActionResponse(
+                            action_type="SPEAK",
+                            text_audio=respond,
+                            params=None
+                        )
+                    )
+                else:
+                    # No specific chapter found, use general material info
+                    prompt = construct_educational_voice_prompt(
+                        question=user_text,
+                        context=f"Material: {material.title}"
+                    )
+                    
+                    respond = await gemini_genetare_content(query=prompt)
+                    
+                    return StandardResponse(
+                        success=True,
+                        data=BaseActionResponse(
+                            action_type="SPEAK",
+                            text_audio=respond,
+                            params=None
+                        )
+                    )
+            else:
+                prompt = construct_educational_voice_prompt(
+                    question=user_text
+                )
+                
+                respond = await gemini_genetare_content(query=prompt)
+                
+                return StandardResponse(
+                    success=False,
+                    data=BaseActionResponse(
+                        action_type="SPEAK",
+                        text_audio="Anda belum membuka materi, tetapi saya akan menjawab pertanyaan anda " + respond,
+                        params=None
+                    )
+                )
+            
+            
             # Handle speak action
             return StandardResponse(
                 success=True,
                 data=BaseActionResponse(
                     action_type="SPEAK",
-                    text_audio=model_answer(user_text),
+                    text_audio="",
                     params=None
                 )
             )
@@ -91,11 +174,12 @@ berikan jawaban saja tanpa ada awalan akhiran lain
                 MATERIAL_TITLE=material_title,
                 MATERIAL_TITLE_LIST=materials_title_data_text
             )
+            print(prompt)
             
             # Call the AI model to get the answer
             answer = await gemini_genetare_content(query=prompt)
-            
-            if answer:
+            print(answer)
+            if not answer.startswith("Error: "):
                 # Find the material ID from the answer
                 for material in materials:
                     if str(material.id) in answer:
@@ -133,7 +217,7 @@ berikan jawaban saja tanpa ada awalan akhiran lain
             return StandardResponse(
                 success=True,
                 data=BaseActionResponse(
-                    action_type="UNRECOGNIZED",
+                    action_type="UNRECOGNIZE",
                     text_audio="Maaf saya tidak bisa memahami apa yang kamu maksud",
                     params=None
                 )
